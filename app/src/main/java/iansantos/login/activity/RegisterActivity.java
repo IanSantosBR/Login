@@ -33,7 +33,7 @@ public class RegisterActivity extends AppCompatActivity {
     private EditText password;
     private EditText passwordConfirmation;
     private FirebaseAuth mAuth;
-    private ProgressDialog dialog = null;
+    private ProgressDialog dialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

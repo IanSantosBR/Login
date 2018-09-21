@@ -40,7 +40,7 @@ public class LoginActivity extends AppCompatActivity {
     private FirebaseAuth.AuthStateListener mAuthListener;
     private EditText email;
     private EditText password;
-    private ProgressDialog dialog = null;
+    private ProgressDialog dialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

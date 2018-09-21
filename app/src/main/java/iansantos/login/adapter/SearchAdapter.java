@@ -65,15 +65,15 @@ public class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.QuestionVi
         TextView tags;
         TextView creationDate;
 
-        QuestionViewHolder(@NonNull View itemView) {
-            super(itemView);
-            title = itemView.findViewById(R.id.title_textView);
-            link = itemView.findViewById(R.id.link_textView);
-            name = itemView.findViewById(R.id.name_textView);
-            isAnswered = itemView.findViewById(R.id.is_answered_textView);
-            tags = itemView.findViewById(R.id.tags_textView);
-            creationDate = itemView.findViewById(R.id.creation_date_textView);
-            itemView.setOnClickListener(this);
+        QuestionViewHolder(@NonNull View view) {
+            super(view);
+            title = view.findViewById(R.id.title_textView);
+            link = view.findViewById(R.id.link_textView);
+            name = view.findViewById(R.id.name_textView);
+            isAnswered = view.findViewById(R.id.is_answered_textView);
+            tags = view.findViewById(R.id.tags_textView);
+            creationDate = view.findViewById(R.id.creation_date_textView);
+            view.setOnClickListener(this);
         }
 
         @Override
@@ -83,5 +83,4 @@ public class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.QuestionVi
             }
         }
     }
-
 }
