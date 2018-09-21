@@ -15,34 +15,34 @@ import java.util.List;
 import iansantos.login.R;
 import iansantos.login.model.StackOverflowQuestion;
 
-public class SearchAdapter extends RecyclerView.Adapter {
-
+public class SearchAdapter extends RecyclerView.Adapter<SearchAdapter.QuestionViewHolder> {
+    private ItemClickListener itemClickListener;
     private List<StackOverflowQuestion> questionList;
 
     public SearchAdapter(List<StackOverflowQuestion> questionList) {
         this.questionList = questionList;
     }
 
+    public void setOnItemClickListener(ItemClickListener itemClickListener) {
+        this.itemClickListener = itemClickListener;
+    }
+
     @NonNull
     @Override
-    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
-        View itemList = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.questions_list, viewGroup, false);
-        return new QuestionViewHolder(itemList);
+    public QuestionViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
+        View view = LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.questions_list, viewGroup, false);
+        return new QuestionViewHolder(view);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder viewHolder, int i) {
-        QuestionViewHolder questionViewHolder = (QuestionViewHolder) viewHolder;
+    public void onBindViewHolder(@NonNull QuestionViewHolder questionViewHolder, int i) {
         StackOverflowQuestion question = questionList.get(i);
-        questionViewHolder.title.setText(question.getTitle());
+        String title = question.getTitle().replace("&#39;", "\'").replace("&amp;", "&").replace("&quot;", "\"");
+        questionViewHolder.title.setText(title);
         questionViewHolder.link.setText(question.getLink());
         questionViewHolder.name.setText(question.getOwner().getName());
         questionViewHolder.tags.setText(TextUtils.join(", ", question.getTags()));
-        if (question.isAnswered()) {
-            questionViewHolder.isAnswered.setText(R.string.answered);
-        } else {
-            questionViewHolder.isAnswered.setText(R.string.not_answered);
-        }
+        questionViewHolder.isAnswered.setText(question.isAnswered() ? R.string.answered : R.string.not_answered);
         Date date = new Date(question.getCreationDate() * 1000L);
         String formattedDate = DateFormat.getDateTimeInstance().format(date);
         questionViewHolder.creationDate.setText(formattedDate);
@@ -53,7 +53,11 @@ public class SearchAdapter extends RecyclerView.Adapter {
         return questionList.size();
     }
 
-    public class QuestionViewHolder extends RecyclerView.ViewHolder {
+    public interface ItemClickListener {
+        void onItemClick(int position);
+    }
+
+    class QuestionViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         TextView title;
         TextView link;
         TextView name;
@@ -69,6 +73,14 @@ public class SearchAdapter extends RecyclerView.Adapter {
             isAnswered = itemView.findViewById(R.id.is_answered_textView);
             tags = itemView.findViewById(R.id.tags_textView);
             creationDate = itemView.findViewById(R.id.creation_date_textView);
+            itemView.setOnClickListener(this);
+        }
+
+        @Override
+        public void onClick(View v) {
+            if (itemClickListener != null) {
+                itemClickListener.onItemClick(getAdapterPosition());
+            }
         }
     }
 

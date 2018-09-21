@@ -2,6 +2,7 @@ package iansantos.login.activity;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.widget.SwipeRefreshLayout;
@@ -12,6 +13,7 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -56,23 +58,35 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         progressBar = findViewById(R.id.progressBar);
         searchEditText = findViewById(R.id.search_editText);
+        swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
+        recyclerView = findViewById(R.id.recyclerView);
         retrofit = new Retrofit.Builder().baseUrl(BASE_URL).addConverterFactory(GsonConverterFactory.create()).build();
         mAuth = FirebaseAuth.getInstance();
-        showAdvertising();
-        recyclerView = findViewById(R.id.recyclerView);
         RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(getApplicationContext());
         recyclerView.setLayoutManager(layoutManager);
         recyclerView.setHasFixedSize(true);
         recyclerView.addItemDecoration(new DividerItemDecoration(MainActivity.this, LinearLayout.VERTICAL));
         adapter = new SearchAdapter(questions);
         recyclerView.setAdapter(adapter);
-        swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
-        swipeRefreshLayout.setOnRefreshListener(() -> {
-            progressBar.setVisibility(View.INVISIBLE);
-            swipeRefreshLayout.setRefreshing(true);
-            recyclerView.setAdapter(adapter);
-            getData(null);
+        searchEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                getData(null);
+                return true;
+            }
+            return false;
         });
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            if (!searchEditText.getText().toString().trim().isEmpty()) {
+                swipeRefreshLayout.setRefreshing(true);
+                progressBar.setVisibility(View.INVISIBLE);
+                recyclerView.setAdapter(adapter);
+                getData(null);
+            } else {
+                swipeRefreshLayout.setRefreshing(false);
+                Toast.makeText(MainActivity.this, "O campo de busca não pode estar vazio", Toast.LENGTH_SHORT).show();
+            }
+        });
+        showAdvertising();
     }
 
     public void signOut(View view) {
@@ -103,42 +117,59 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void getData(View view) {
-        recyclerView.setAdapter(adapter);
-        if (progressBar.getVisibility() == View.GONE) {
-            progressBar.setVisibility(View.VISIBLE);
-        } else {
-            progressBar.setVisibility(View.INVISIBLE);
-        }
-        hideKeyboard();
-        SearchService searchService = retrofit.create(SearchService.class);
-        Call<StackOverflowSearch> requestData = searchService.getSearch(searchEditText.getText().toString());
-        requestData.enqueue(new Callback<StackOverflowSearch>() {
-            @Override
-            public void onResponse(@NonNull Call<StackOverflowSearch> call, @NonNull Response<StackOverflowSearch> response) {
-                progressBar.setVisibility(View.GONE);
-                swipeRefreshLayout.setRefreshing(false);
-                if (response.isSuccessful()) {
-                    StackOverflowSearch search = response.body();
-                    for (StackOverflowQuestion question : Objects.requireNonNull(search).items) {
-                        StackOverflowUser user = question.getOwner();
-                        Log.i(TAG, String.format("%s \n%s \n%s", question.getTitle(), question.getLink(), user.getName()));
+        if (!searchEditText.getText().toString().trim().isEmpty()) {
+            recyclerView.setAdapter(adapter);
+            progressBar.setVisibility(progressBar.getVisibility() == View.GONE ? View.VISIBLE : View.INVISIBLE);
+            hideKeyboard();
+            SearchService searchService = retrofit.create(SearchService.class);
+            Call<StackOverflowSearch> requestData = searchService.getSearch(searchEditText.getText().toString());
+            requestData.enqueue(new Callback<StackOverflowSearch>() {
+                @Override
+                public void onResponse(@NonNull Call<StackOverflowSearch> call, @NonNull Response<StackOverflowSearch> response) {
+                    progressBar.setVisibility(View.GONE);
+                    swipeRefreshLayout.setRefreshing(false);
+                    if (response.isSuccessful()) {
+                        StackOverflowSearch search = response.body();
+                        for (StackOverflowQuestion question : Objects.requireNonNull(search).items) {
+                            StackOverflowUser user = question.getOwner();
+                            Log.i(TAG, String.format("%s \n%s \n%s", question.getTitle(), question.getLink(), user.getName()));
+                        }
+                        initAdapter(search.getItems());
+                    } else {
+                        Log.e(TAG, String.valueOf(response.code()));
                     }
-                    initAdapter(search.getItems());
-                } else {
-                    Log.e(TAG, String.valueOf(response.code()));
                 }
-            }
-            @Override
-            public void onFailure(@NonNull Call<StackOverflowSearch> call, @NonNull Throwable t) {
-                progressBar.setVisibility(View.GONE);
-                Log.d(TAG, t.getMessage());
-            }
-        });
+                @Override
+                public void onFailure(@NonNull Call<StackOverflowSearch> call, @NonNull Throwable t) {
+                    progressBar.setVisibility(View.GONE);
+                    swipeRefreshLayout.setRefreshing(false);
+                    Log.d(TAG, t.getMessage());
+                }
+            });
+        } else {
+            Toast.makeText(MainActivity.this, "O campo de busca não pode estar vazio", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void initAdapter(List<StackOverflowQuestion> questionsList) {
-        SearchAdapter adapter = new SearchAdapter(questionsList);
-        recyclerView.setAdapter(adapter);
+        if (!questionsList.isEmpty()) {
+            SearchAdapter adapter = new SearchAdapter(questionsList);
+            recyclerView.setAdapter(adapter);
+            adapter.setOnItemClickListener((int position) -> {
+                AlertDialog.Builder alert = new AlertDialog.Builder(MainActivity.this);
+                String title = questionsList.get(position).getTitle().replace("&#39;", "\'").replace("&amp;", "&").replace("&quot;", "\"");
+                alert.setMessage(String.format("Ir para o link da questão: \"%s\" ?", title));
+                alert.setCancelable(true);
+                alert.setPositiveButton(android.R.string.yes, (dialogInterface, i) -> {
+                    String url = questionsList.get(position).getLink();
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                });
+                alert.setNegativeButton(android.R.string.no, (dialogInterface, i) -> dialogInterface.dismiss());
+                alert.show();
+            });
+        } else {
+            Toast.makeText(MainActivity.this, "Não foram encontrados resultados para a sua busca", Toast.LENGTH_SHORT).show();
+        }
     }
 
     public void hideKeyboard() {
